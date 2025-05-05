@@ -12,7 +12,7 @@ from typing import Dict, FrozenSet, Optional, Tuple, Union
 def get_opcode_opnd_dict(opcode_start, opnd_start):
     sym_dict = dict()
 
-    filename = os.environ['ITHEMAL_HOME'] + '/common/inputs/encoding.h'
+    filename = '/content/521_final/common/inputs/encoding.h'
 
     with open(filename,'r') as f:
         opcode_num = opcode_start
@@ -31,7 +31,7 @@ def get_opcode_opnd_dict(opcode_start, opnd_start):
     return sym_dict
 
 def read_offsets():
-    offsets_filename = os.environ['ITHEMAL_HOME'] + '/common/inputs/offsets.txt'
+    offsets_filename = '/content/521_final/common/inputs/offsets.txt'
     offsets = list()
     with open(offsets_filename,'r') as f:
         for line in f:
