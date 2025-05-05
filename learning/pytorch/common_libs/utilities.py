@@ -1,122 +1,11 @@
 import collections
-import mysql.connector
 import struct
 import sys
-from mysql.connector import errorcode
 import random
 import re
 import os
 import tempfile
 from typing import Dict, FrozenSet, Optional, Tuple, Union
-
-#mysql specific functions
-def create_connection(database=None, user=None, password=None, port=None):
-    args = {}
-
-    option_files = list(filter(os.path.exists, map(os.path.abspath, map(os.path.expanduser, [
-        '/etc/my.cnf',
-        '~/.my.cnf',
-    ]))))
-
-    if option_files:
-        args['option_files'] = option_files
-    if database:
-        args['database'] = database
-    if user:
-        args['user'] = user
-    if password:
-        args['password'] = password
-    if port:
-        args['port'] = port
-
-    cnx = None
-    try:
-        cnx = mysql.connector.connect(**args)
-    except mysql.connector.Error as err:
-        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-            print("Something is wrong with your user name or password")
-        elif err.errno == errorcode.ER_BAD_DB_ERROR:
-            print("Database does not exist")
-        else:
-            print(err)
-
-    return cnx
-
-def get_mysql_config(filename):
-
-    config = dict()
-    with open(filename,'r') as f:
-        for line in f:
-            found = re.search('([a-zA-Z\-]+) *= *\"*([a-zA-Z0-9#\./]+)\"*', line)
-            if found:
-                config[found.group(1)] = found.group(2)
-    return config
-
-
-def create_connection_from_config(config_file, database=None):
-
-    config = get_mysql_config(config_file)
-    cnx = create_connection(user=config['user'],password=config['password'],port=config['port'],database=database)
-    return cnx
-
-def execute_many(cnx, sql, values):
-    cur = cnx.cursor(buffered=True)
-    cur.executemany(sql, values)
-
-
-def execute_query(cnx, sql, fetch, multi=False):
-    cur = cnx.cursor(buffered=True)
-    cur.execute(sql,multi)
-    if fetch:
-        return cur.fetchall()
-    else:
-        return None
-
-#data reading function
-def get_data(cnx, format, cols, limit=None):
-    try:
-        cur = cnx.cursor(buffered=True)
-
-        #code column is mandatory
-        columns = 'code_token'
-        for col in cols:
-            columns += ',' + col
-        columns += ''
-
-        sql = 'SELECT ' + columns + ' FROM code'
-        if limit is not None:
-            sql += ' LIMIT {}'.format(limit)
-
-        print(sql)
-        data = list()
-        cur.execute(sql)
-        print(cur.rowcount)
-        row = cur.fetchone()
-        while row != None:
-            item = list()
-            code = list()
-            if format == 'text':
-                for value in row[0].split(','):
-                    if value != '':
-                        code.append(int(value))
-            elif format == 'bin':
-                if len(row[0]) % 2 != 0:
-                    row = cur.fetchone()
-                    continue
-                for i in range(0,len(row[0]),2):
-                    slice = row[0][i:i+2]
-                    convert = struct.unpack('h',slice)
-                    code.append(int(convert[0]))
-
-            item.append(code)
-            for i in range(len(cols)):
-                item.append(row[i + 1])
-            data.append(item)
-            row = cur.fetchone()
-    except Exception as e:
-        print(e)
-    else:
-        return data
 
 
 #dynamorio specific encoding details - tokenizing
@@ -731,32 +620,3 @@ def create_basicblock(tokens):
 
     block = BasicBlock(instrs)
     return block
-
-
-if __name__ == "__main__":
-    cnx = create_connection()
-    cur = cnx.cursor(buffered = True)
-
-    sql = 'SELECT code_id, code_token from  code where program = \'2mm\' and rel_addr = 4136'
-
-    cur.execute(sql)
-
-    rows = cur.fetchall()
-
-    sym_dict, mem_start = get_sym_dict()
-
-    for row in rows:
-        print(row[0])
-        code = []
-        for val in row[1].split(','):
-            if val != '':
-                code.append(get_name(int(val),sym_dict,mem_start))
-        print(code)
-
-
-    sql = 'SELECT time from times where code_id = ' + str(rows[0][0])
-    cur.execute(sql)
-    rows = cur.fetchall()
-
-    times = [int(t[0]) for t in rows]
-    print(sorted(times))

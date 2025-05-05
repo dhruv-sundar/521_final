@@ -110,15 +110,15 @@ class DataInstructionEmbedding(Data):
 def load_dataset(data_savefile=None, arch=None, format='text'):
     data = DataInstructionEmbedding()
 
-    if data_savefile is None:
-        if arch is None:
-            raise ValueError('Must provide one of data_savefile or arch')
+    # if data_savefile is None:
+    #     if arch is None:
+    #         raise ValueError('Must provide one of data_savefile or arch')
 
-        cnx = ut.create_connection()
-        data.extract_data(cnx, format, ['code_id','code_intel'])
-        data.get_timing_data(cnx, arch)
-    else:
-        data.raw_data = torch.load(data_savefile)
+    #     cnx = ut.create_connection()
+    #     data.extract_data(cnx, format, ['code_id','code_intel'])
+    #     data.get_timing_data(cnx, arch)
+    # else:
+    data.raw_data = torch.load(data_savefile)
 
     data.read_meta_data()
     data.prepare_data()
