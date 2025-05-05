@@ -87,10 +87,10 @@ def get_data(cnx, format, cols, limit=None):
         if limit is not None:
             sql += ' LIMIT {}'.format(limit)
 
-        print sql
+        print(sql)
         data = list()
         cur.execute(sql)
-        print cur.rowcount
+        print(cur.rowcount)
         row = cur.fetchone()
         while row != None:
             item = list()
@@ -114,7 +114,7 @@ def get_data(cnx, format, cols, limit=None):
             data.append(item)
             row = cur.fetchone()
     except Exception as e:
-        print e
+        print(e)
     else:
         return data
 
@@ -258,10 +258,10 @@ class Instruction:
         return Instruction(self.opcode, self.srcs[:], self.dsts[:], self.num)
 
     def print_instr(self):
-        print self.num, self.opcode, self.srcs, self.dsts
+        print(self.num, self.opcode, self.srcs, self.dsts)
         num_parents = [parent.num for parent in self.parents]
         num_children = [child.num for child in self.children]
-        print num_parents, num_children
+        print(num_parents, num_children)
 
     def __str__(self):
         return self.intel
@@ -746,12 +746,12 @@ if __name__ == "__main__":
     sym_dict, mem_start = get_sym_dict()
 
     for row in rows:
-        print row[0]
+        print(row[0])
         code = []
         for val in row[1].split(','):
             if val != '':
                 code.append(get_name(int(val),sym_dict,mem_start))
-        print code
+        print(code)
 
 
     sql = 'SELECT time from times where code_id = ' + str(rows[0][0])
@@ -759,4 +759,4 @@ if __name__ == "__main__":
     rows = cur.fetchall()
 
     times = [int(t[0]) for t in rows]
-    print sorted(times)
+    print(sorted(times))

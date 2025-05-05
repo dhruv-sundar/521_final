@@ -34,19 +34,19 @@ class AbstractGraphModule(nn.Module):
             embedding = nn.Embedding(dictsize, self.embedding_size)
 
         if mode == 'none':
-            print 'learn embeddings form scratch...'
+            print('learn embeddings form scratch...')
             initrange = 0.5 / self.embedding_size
             embedding.weight.data.uniform_(-initrange, initrange)
             self.final_embeddings = embedding
         elif mode == 'seed':
-            print 'seed by word2vec vectors....'
+            print('seed by word2vec vectors....')
             embedding.weight.data = torch.FloatTensor(seed)
             self.final_embeddings = embedding
         elif mode == 'learnt':
-            print 'using learnt word2vec embeddings...'
+            print('using learnt word2vec embeddings...')
             self.final_embeddings = seed
         else:
-            print 'embedding not selected...'
+            print('embedding not selected...')
             exit()
 
     def dump_shared_params(self):

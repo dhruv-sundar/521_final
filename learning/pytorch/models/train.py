@@ -30,7 +30,7 @@ def memReport():
     for obj in gc.get_objects():
         if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
             num_obj += 1
-    print 'num_obj ' + str(num_obj)
+    print('num_obj ' + str(num_obj))
 
 def cpuStats():
     # type: () -> None
@@ -321,7 +321,7 @@ class Train():
     def validate(self, resultfile, loadfile=None):
         # type: (str, Optional[str]) -> Tuple[List[List[float]], List[List[float]]]
         if loadfile is not None:
-            print 'loaded from checkpoint for validation...'
+            print('loaded from checkpoint for validation...')
             self.load_checkpoint(loadfile)
 
         f = open(resultfile,'w')
@@ -367,7 +367,7 @@ class Train():
                 for av in average_loss:
                     p_str += str(av) + ' '
                 p_str += str(self.correct) + ' '
-                print p_str
+                print(p_str)
 
             #remove refs; so the gc remove unwanted tensors
             self.model.remove_refs(item)
@@ -376,7 +376,7 @@ class Train():
             f.write('loss - %f\n' % (loss))
         f.write('%f,%f\n' % (self.correct, len(self.data.test)))
 
-        print average_loss, self.correct, len(self.data.test)
+        print(average_loss, self.correct, len(self.data.test))
         f.close()
 
         return (actual, predicted)
