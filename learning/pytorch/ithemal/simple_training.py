@@ -51,7 +51,7 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
     
     # Load data and model
     print("Loading data...")
-    data = load_data(base_params)
+    data = load_data(base_params, direct=True)
     print(f"Data loaded: {len(data.train)} training samples, {len(data.test)} test samples")
     
     print("Creating model...")
