@@ -102,9 +102,9 @@ def ablate_data(data, edge_ablation_types, random_edge_freq):
         for data_item in data.data:
             data_item.block.random_forward_edges(random_edge_freq / len(data_item.block.instrs))
 
-def load_data(params):
-    # type: (BaseParameters) -> dt.DataCost
-    data = dt.load_dataset(params.data)
+def load_data(params, direct=False):
+    # type: (BaseParameters, bool) -> dt.DataCost
+    data = dt.load_dataset(params.data, direct=direct)
 
     def filter_data(filt):
         # type: (Callable[[dt.DataItem], bool]) -> None
