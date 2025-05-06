@@ -11,7 +11,8 @@ import statistics
 import pandas as pd
 import xml.etree.ElementTree as ET
 import itertools
-
+import gzip
+import csv
 import sys
 sys.path.append('..')
 
@@ -107,7 +108,7 @@ class DataInstructionEmbedding(Data):
             datum = DataItem(raw_instrs, timing, block, code_id)
             self.data.append(datum)
 
-def load_dataset(data_savefile=None, arch=None, format='text'):
+def load_dataset(data_savefile=None, arch=None, format='text', direct=False):
     data = DataInstructionEmbedding()
 
     # if data_savefile is None:
@@ -118,7 +119,28 @@ def load_dataset(data_savefile=None, arch=None, format='text'):
     #     data.extract_data(cnx, format, ['code_id','code_intel'])
     #     data.get_timing_data(cnx, arch)
     # else:
-    data.raw_data = torch.load(data_savefile)
+    if direct:
+        with gzip.open(data_savefile, 'rb') as f_in:
+            reader = csv.reader(f_in)
+            lst = []
+            header = next(reader)
+            print(f"CSV header: {header}")
+            
+            for row in tqdm(reader):
+                if len(row) >= 4:  # Ensure we have all required columns
+                    code_id = row[0]
+                    timing = float(row[1])
+                    code_intel = row[2]
+                    code_xml = row[3]
+                    
+                    lst.append((code_id, timing, code_intel, code_xml))
+                else:
+                    print(f"Skipping row: {row}")
+
+            data.raw_data = lst
+        
+    else:
+        data.raw_data = torch.load(data_savefile)
 
     data.read_meta_data()
     data.prepare_data()
