@@ -65,7 +65,7 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
     # Create trainer
     trainer = tr.Train(
         model, data, tr.PredictionType.REGRESSION, ls.mse_loss, 1,
-        batch_size=batch_size, clip=None, opt=tr.OptimizerType.ADAM,
+        batch_size=batch_size, clip=None,
         lr=learning_rate, predict_log=base_params.predict_log
     )
     
