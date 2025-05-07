@@ -5,6 +5,7 @@ import argparse
 import time
 from tqdm import tqdm
 import random
+import numpy as np
 
 # Add Ithemal paths
 sys.path.append(os.path.join(os.environ['ITHEMAL_HOME'], 'learning', 'pytorch'))
@@ -15,6 +16,27 @@ import models.losses as ls
 import models.train as tr
 import data.data_cost as dt
 from ithemal_utils import BaseParameters, load_data, load_model
+
+class LossReporter:
+    def __init__(self):
+        self.losses = []
+        self.batch_sizes = []
+        
+    def report_loss(self, message):
+        if hasattr(message, 'loss') and hasattr(message, 'n_items'):
+            self.losses.append(message.loss)
+            self.batch_sizes.append(message.n_items)
+    
+    def get_avg_loss(self):
+        if not self.losses:
+            return 0
+        total_items = sum(self.batch_sizes)
+        weighted_loss = sum(l * n for l, n in zip(self.losses, self.batch_sizes))
+        return weighted_loss / total_items if total_items > 0 else 0
+    
+    def reset(self):
+        self.losses = []
+        self.batch_sizes = []
 
 def train_model(data_file, model_file=None, epochs=3, batch_size=32, 
                 learning_rate=0.001, hidden_size=256, embed_size=256):
@@ -65,7 +87,7 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
     # Create trainer
     trainer = tr.Train(
         model, data, tr.PredictionType.REGRESSION, ls.mse_loss, 1,
-        batch_size=batch_size, clip=None,
+        batch_size=batch_size, clip=None, opt=tr.OptimizerType.ADAM_PRIVATE,
         lr=learning_rate, predict_log=base_params.predict_log
     )
     
@@ -80,35 +102,35 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
         random.shuffle(data.train)
         
         # Train for one epoch
-        epoch_loss = 0
-        total_items = 0
+        loss_reporter = LossReporter()
         
-        for i in tqdm(range(0, len(data.train), batch_size)):
-            batch = data.train[i:i+batch_size]
-            loss, n_items = trainer.train_batch(batch)
-            epoch_loss += loss * n_items
-            total_items += n_items
+        # Process data in chunks of batch_size
+        for i in range(0, len(data.train), batch_size * 10):
+            end_idx = min(i + batch_size * 10, len(data.train))
+            trainer.partition = (i, end_idx)
+            trainer.train(report_loss_fn=loss_reporter.report_loss)
         
-        avg_epoch_loss = epoch_loss / total_items
-        print(f"Training loss: {avg_epoch_loss:.6f}")
+        train_loss = loss_reporter.get_avg_loss()
+        print(f"Training loss: {train_loss:.6f}")
         
         # Validate
+        print("Validating...")
+        actual, predicted = trainer.validate("temp_results.txt")
+        
+        # Calculate validation loss
         val_loss = 0
-        val_items = 0
+        for act, pred in zip(actual, predicted):
+            act_tensor = torch.tensor(act, dtype=torch.float32)
+            pred_tensor = torch.tensor(pred, dtype=torch.float32)
+            loss = ls.mse_loss(pred_tensor, act_tensor)[0].item()
+            val_loss += loss
+        val_loss /= len(actual)
         
-        with torch.no_grad():
-            for i in tqdm(range(0, len(data.test), batch_size)):
-                batch = data.test[i:i+batch_size]
-                loss, n_items = trainer.validate_batch(batch)
-                val_loss += loss * n_items
-                val_items += n_items
-        
-        avg_val_loss = val_loss / val_items
-        print(f"Validation loss: {avg_val_loss:.6f}")
+        print(f"Validation loss: {val_loss:.6f}")
         
         # Save model if it's the best so far
-        if avg_val_loss < best_loss:
-            best_loss = avg_val_loss
+        if val_loss < best_loss:
+            best_loss = val_loss
             torch.save(model.state_dict(), f"best_model_epoch_{epoch+1}.pt")
             print(f"Saved new best model with validation loss: {best_loss:.6f}")
     
