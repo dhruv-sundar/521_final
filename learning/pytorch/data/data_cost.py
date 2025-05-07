@@ -120,25 +120,28 @@ def load_dataset(data_savefile=None, arch=None, format='text', direct=False):
     #     data.get_timing_data(cnx, arch)
     # else:
     if direct:
-        with gzip.open(data_savefile, 'rb') as f_in:
-            reader = csv.reader(f_in)
-            lst = []
+        is_gzipped = data_savefile.endswith('.gz')
+        
+        # Open the file in text mode (not binary)
+        open_func = gzip.open if is_gzipped else open
+        mode = 'rt' if is_gzipped else 'r'  # 'rt' for text mode with gzip
+        
+        data.raw_data = []
+        with open_func(data_savefile, mode) as f:
+            reader = csv.reader(f)
+
             header = next(reader)
-            print(f"CSV header: {header}")
             
-            for row in tqdm(reader):
+
+            for row in reader:
                 if len(row) >= 4:  # Ensure we have all required columns
                     code_id = row[0]
                     timing = float(row[1])
                     code_intel = row[2]
                     code_xml = row[3]
                     
-                    lst.append((code_id, timing, code_intel, code_xml))
-                else:
-                    print(f"Skipping row: {row}")
-
-            data.raw_data = lst
-        
+                    # Add to data list
+                    data.raw_data.append((code_id, timing, code_intel, code_xml))
     else:
         data.raw_data = torch.load(data_savefile)
 
