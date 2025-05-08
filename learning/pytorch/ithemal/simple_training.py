@@ -135,6 +135,7 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
             print(f"Saved new best model with validation loss: {best_loss:.6f}")
     
     print("Training complete!")
+    print()
     return model
 
 if __name__ == "__main__":
