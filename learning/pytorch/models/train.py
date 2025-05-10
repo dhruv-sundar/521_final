@@ -72,6 +72,7 @@ class Train():
                  opt = OptimizerType.SGD,
                  weight_decay = 0.,
                  predict_log = False,
+                 device = torch.device("cpu"),
     ):
         # type: (nn.Module, dt.Data, PredictionType, Callable[[torch.tensor, torch.tensor], torch.tensor], int, int, float, float, float, bool, Optional[float], OptimizerType, float, bool) -> None
 
@@ -110,6 +111,7 @@ class Train():
 
         self.rank = 0
         self.last_save_time = 0
+        self.device = device
 
     def dump_shared_params(self):
         # type: () -> Dict[str, object]
@@ -240,21 +242,25 @@ class Train():
             self.correct = 0
 
             self.optimizer.zero_grad()
-            loss_tensor = torch.FloatTensor([0]).squeeze()
+            # loss_tensor = torch.FloatTensor([0]).squeeze()
+            loss_tensor = torch.tensor(0.0, device=self.device)
             batch = self.data.train[idx:idx+self.batch_size]
 
             if not batch:
                 continue
 
             for datum in batch:
-                output = self.model(datum)
+                # output = self.model(datum)
+                output = self.model(datum.to(self.device))
 
                 if torch.isnan(output).any():
                     report_trainer_death(idx)
                     return
 
                 #target as a tensor
-                target = self.get_target(datum)
+                # target = self.get_target(datum)
+                target = self.get_target(datum).to(self.device)
+
 
                 #get the loss value
                 if self.loss_fn:
@@ -334,8 +340,11 @@ class Train():
         for j, item in enumerate(tqdm(self.data.test)):
 
             #print len(item.x)
-            output = self.model(item)
-            target = self.get_target(item)
+            # output = self.model(item)
+            # target = self.get_target(item)
+            output = self.model(item.to(self.device))
+            target = self.get_target(item).to(self.device)
+
 
             if self.predict_log:
                 output.exp_()
@@ -357,7 +366,8 @@ class Train():
                 self.correct_regression(output, target)
 
             #accumulate the losses
-            loss = torch.zeros(1)
+            # loss = torch.zeros(1)
+            loss = torch.zeros(1, device=self.device)
             for c,l in enumerate(losses):
                 loss += l
                 average_loss[c] = (average_loss[c] * j + l.item()) / (j + 1)

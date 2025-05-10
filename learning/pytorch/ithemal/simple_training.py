@@ -7,6 +7,9 @@ from tqdm import tqdm
 import random
 import numpy as np
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
 # Add Ithemal paths
 sys.path.append(os.path.join(os.environ['ITHEMAL_HOME'], 'learning', 'pytorch'))
 
@@ -78,6 +81,7 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
     
     print("Creating model...")
     model = load_model(base_params, data)
+    model.to(device)
     
     # Load pre-trained model if specified
     if model_file:
@@ -88,7 +92,7 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
     trainer = tr.Train(
         model, data, tr.PredictionType.REGRESSION, ls.mse_loss, 1,
         batch_size=batch_size, clip=None, opt=tr.OptimizerType.ADAM_PRIVATE,
-        lr=learning_rate, predict_log=base_params.predict_log
+        lr=learning_rate, predict_log=base_params.predict_log, device = device,
     )
     
     # Training loop
@@ -109,6 +113,7 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
             end_idx = min(i + batch_size * 10, len(data.train))
             trainer.partition = (i, end_idx)
             trainer.train(report_loss_fn=loss_reporter.report_loss)
+            print(f"Chunk {i} to {i + batch_size * 10} done out of {len(data.train)}")
         
         train_loss = loss_reporter.get_avg_loss()
         print(f"Training loss: {train_loss:.6f}")
@@ -120,8 +125,8 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
         # Calculate validation loss
         val_loss = 0
         for act, pred in zip(actual, predicted):
-            act_tensor = torch.tensor(act, dtype=torch.float32)
-            pred_tensor = torch.tensor(pred, dtype=torch.float32)
+            act_tensor = torch.tensor(act, dtype=torch.float32, device=device)
+            pred_tensor = torch.tensor(pred, dtype=torch.float32, device=device)
             loss = ls.mse_loss(pred_tensor, act_tensor)[0].item()
             val_loss += loss
         val_loss /= len(actual)
