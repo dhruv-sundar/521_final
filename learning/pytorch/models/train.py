@@ -231,7 +231,7 @@ class Train():
         if not datum.x:
             print("datum.x empty")
             return datum
-        datum.x = [torch.LongTensor(tensor).to(device) for tensor in datum.x]
+
         if isinstance(datum.x[0], torch.Tensor) and datum.x[0].is_cuda:
         # CUDA
             datum.x = [tensor.to(device) for tensor in datum.x]
