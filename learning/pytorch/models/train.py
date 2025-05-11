@@ -215,7 +215,8 @@ class Train():
 
     def get_target(self, datum):
         # type: (dt.DataItem) -> torch.tensor
-        target = torch.FloatTensor([datum.y], device = self.device).squeeze()
+        # target = torch.FloatTensor([datum.y], device = self.device).squeeze()
+        target = torch.FloatTensor([datum.y]).to(self.device).squeeze()
         if self.predict_log:
             target.log_()
         return target

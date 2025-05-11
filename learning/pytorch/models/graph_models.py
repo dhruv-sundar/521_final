@@ -382,7 +382,12 @@ class RNN(AbstractGraphModule):
     def rnn_init_hidden(self):
         # type: () -> Union[Tuple[nn.Parameter, nn.Parameter], nn.Parameter]
 
-        hidden = self.init_hidden()
+        # hidden = self.init_hidden()
+        device = torch.device("cuda:0")
+        hidden = (
+            nn.Parameter(torch.zeros(1, 1, self.hidden_size, device=device, requires_grad=True)),
+            nn.Parameter(torch.zeros(1, 1, self.hidden_size, device=device, requires_grad=True)),
+        )
 
         # for h in hidden:
         #     torch.nn.init.kaiming_uniform_(h)
@@ -441,7 +446,9 @@ class RNN(AbstractGraphModule):
                     else:
                         token_state = token_state + parent_state
 
-            tokens = self.final_embeddings(token_inputs).unsqueeze(1)
+            device = next(self.parameters()).device
+            # tokens = self.final_embeddings(torch.LongTensor(token_inputs, device = device)).unsqueeze(1)
+            tokens = self.final_embeddings(torch.tensor(token_inputs, dtype=torch.long, device=device)).unsqueeze(1)
             output, state = self.token_rnn(tokens, token_state)
             token_output_map[instr] = output
             token_state_map[instr] = state
@@ -487,7 +494,7 @@ class Fasthemal(AbstractGraphModule):
         embeds = []
 
         for token_inputs in item.x:
-            tokens = self.final_embeddings(token_inputs).unsqueeze(1)
+            tokens = self.final_embeddings(torch.LongTensor(token_inputs)).unsqueeze(1)
             _, (token_state, _) = self.token_rnn(tokens)
             embeds.append(token_state.squeeze(1))
 
