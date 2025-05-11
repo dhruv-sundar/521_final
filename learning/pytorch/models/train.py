@@ -215,10 +215,18 @@ class Train():
 
     def get_target(self, datum):
         # type: (dt.DataItem) -> torch.tensor
-        target = torch.FloatTensor([datum.y]).squeeze()
+        target = torch.FloatTensor([datum.y], device = self.device).squeeze()
         if self.predict_log:
             target.log_()
         return target
+
+    def move_datum_to_device(self, datum, device):
+        # datum.x = datum.x.to(device)
+        # datum.y = datum.y.to(device)
+        datum.x = [tensor.to(self.device) for tensor in datum.x]
+        datum.y = [tensor.to(self.device) for tensor in datum.y]
+        return datum
+
 
     """
     Training loop - to do make the average loss for general
@@ -251,6 +259,7 @@ class Train():
 
             for datum in batch:
                 # output = self.model(datum)
+                datum = self.move_datum_to_device(datum, self.device)
                 output = self.model(datum.to(self.device))
 
                 if torch.isnan(output).any():
@@ -342,6 +351,7 @@ class Train():
             #print len(item.x)
             # output = self.model(item)
             # target = self.get_target(item)
+            item = self.move_datum_to_device(item, self.device)
             output = self.model(item.to(self.device))
             target = self.get_target(item).to(self.device)
 
