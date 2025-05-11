@@ -441,7 +441,7 @@ class RNN(AbstractGraphModule):
                     else:
                         token_state = token_state + parent_state
 
-            tokens = self.final_embeddings(torch.LongTensor(token_inputs)).unsqueeze(1)
+            tokens = self.final_embeddings(token_inputs).unsqueeze(1)
             output, state = self.token_rnn(tokens, token_state)
             token_output_map[instr] = output
             token_state_map[instr] = state
@@ -487,7 +487,7 @@ class Fasthemal(AbstractGraphModule):
         embeds = []
 
         for token_inputs in item.x:
-            tokens = self.final_embeddings(torch.LongTensor(token_inputs)).unsqueeze(1)
+            tokens = self.final_embeddings(token_inputs).unsqueeze(1)
             _, (token_state, _) = self.token_rnn(tokens)
             embeds.append(token_state.squeeze(1))
 

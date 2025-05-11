@@ -223,8 +223,8 @@ class Train():
     def move_datum_to_device(self, datum, device):
         # datum.x = datum.x.to(device)
         # datum.y = datum.y.to(device)
-        datum.x = [tensor.to(self.device) for tensor in datum.x]
-        datum.y = [tensor.to(self.device) for tensor in datum.y]
+        datum.x = [torch.LongTensor(tensor).to(device) for tensor in datum.x]
+        # datum.y = [torch.LongTensor(tensor).to(device) for tensor in datum.y]
         return datum
 
 
@@ -260,7 +260,7 @@ class Train():
             for datum in batch:
                 # output = self.model(datum)
                 datum = self.move_datum_to_device(datum, self.device)
-                output = self.model(datum.to(self.device))
+                output = self.model(datum)
 
                 if torch.isnan(output).any():
                     report_trainer_death(idx)
@@ -268,7 +268,7 @@ class Train():
 
                 #target as a tensor
                 # target = self.get_target(datum)
-                target = self.get_target(datum).to(self.device)
+                target = self.get_target(datum)
 
 
                 #get the loss value
@@ -352,8 +352,8 @@ class Train():
             # output = self.model(item)
             # target = self.get_target(item)
             item = self.move_datum_to_device(item, self.device)
-            output = self.model(item.to(self.device))
-            target = self.get_target(item).to(self.device)
+            output = self.model(item)
+            target = self.get_target(item)
 
 
             if self.predict_log:
