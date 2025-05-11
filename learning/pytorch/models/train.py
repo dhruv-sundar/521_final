@@ -163,6 +163,9 @@ class Train():
 
     def correct_regression(self,x,y):
         # type: (torch.tensor, torch.tensor) -> None
+        # Ignore empty y
+        if y.numel() == 0 or x.numel() == 0:
+            return
 
         if x.shape != ():
             x = x[-1]
@@ -216,16 +219,26 @@ class Train():
     def get_target(self, datum):
         # type: (dt.DataItem) -> torch.tensor
         # target = torch.FloatTensor([datum.y], device = self.device).squeeze()
+        if not hasattr(datum, 'y') or datum.y is None:
+            return torch.tensor([0.0], device=self.device)
+            
         target = torch.FloatTensor([datum.y]).to(self.device).squeeze()
         if self.predict_log:
             target.log_()
         return target
 
     def move_datum_to_device(self, datum, device):
-        # datum.x = datum.x.to(device)
-        # datum.y = datum.y.to(device)
+        if not datum.x:
+            print("datum.x empty")
+            return datum
         datum.x = [torch.LongTensor(tensor).to(device) for tensor in datum.x]
-        # datum.y = [torch.LongTensor(tensor).to(device) for tensor in datum.y]
+        if isinstance(datum.x[0], torch.Tensor) and datum.x[0].is_cuda:
+        # CUDA
+            datum.x = [tensor.to(device) for tensor in datum.x]
+        else:
+        # Move to device if on CPU
+            datum.x = [torch.LongTensor(tensor).to(device) for tensor in datum.x]
+
         return datum
 
 
@@ -259,6 +272,9 @@ class Train():
                 continue
 
             for datum in batch:
+                if not datum.x or not datum.block.instrs:
+                    print(f"Skipping empty datum at index {idx}")
+                    continue
                 # output = self.model(datum)
                 datum = self.move_datum_to_device(datum, self.device)
                 output = self.model(datum)
@@ -366,8 +382,10 @@ class Train():
                 actual.append((torch.argmax(target) + 1).data.numpy().tolist())
                 predicted.append((torch.argmax(output) + 1).data.numpy().tolist())
             else:
-                actual.append(target.data.numpy().tolist())
-                predicted.append(output.data.numpy().tolist())
+                # actual.append(target.data.numpy().tolist())
+                # predicted.append(output.data.numpy().tolist())
+                actual.append(target.cpu().data.numpy().tolist())
+                predicted.append(output.cpu().data.numpy().tolist())
 
             self.print_final(f, output, target)
             losses = self.loss_fn(output, target)
