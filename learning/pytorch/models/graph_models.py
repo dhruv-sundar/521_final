@@ -383,8 +383,12 @@ class RNN(AbstractGraphModule):
         # type: () -> Union[Tuple[nn.Parameter, nn.Parameter], nn.Parameter]
 
         # hidden = self.init_hidden()
-        device = torch.device("cuda:0")
-        hidden = (
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+        if device == "cpu":
+            hidden = self.init_hidden()
+        else:
+            hidden = (
             nn.Parameter(torch.zeros(1, 1, self.hidden_size, device=device, requires_grad=True)),
             nn.Parameter(torch.zeros(1, 1, self.hidden_size, device=device, requires_grad=True)),
         )
