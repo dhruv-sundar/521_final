@@ -382,7 +382,12 @@ class RNN(AbstractGraphModule):
     def rnn_init_hidden(self):
         # type: () -> Union[Tuple[nn.Parameter, nn.Parameter], nn.Parameter]
 
-        hidden = self.init_hidden()
+        # hidden = self.init_hidden()
+        device = torch.device("cuda:0")
+        hidden = (
+            nn.Parameter(torch.zeros(1, 1, self.hidden_size, device=device, requires_grad=True)),
+            nn.Parameter(torch.zeros(1, 1, self.hidden_size, device=device, requires_grad=True)),
+        )
 
         # for h in hidden:
         #     torch.nn.init.kaiming_uniform_(h)
@@ -419,6 +424,9 @@ class RNN(AbstractGraphModule):
 
     def forward(self, item):
         # type: (dt.DataItem) -> torch.tensor
+        if not item.x or not item.block.instrs:
+            device = next(self.parameters()).device
+            return torch.zeros(1, device=device)
 
         token_state = self.get_token_init()
 
@@ -441,7 +449,9 @@ class RNN(AbstractGraphModule):
                     else:
                         token_state = token_state + parent_state
 
-            tokens = self.final_embeddings(torch.LongTensor(token_inputs)).unsqueeze(1)
+            device = next(self.parameters()).device
+            # tokens = self.final_embeddings(torch.LongTensor(token_inputs, device = device)).unsqueeze(1)
+            tokens = self.final_embeddings(torch.tensor(token_inputs, dtype=torch.long, device=device)).unsqueeze(1)
             output, state = self.token_rnn(tokens, token_state)
             token_output_map[instr] = output
             token_state_map[instr] = state
@@ -454,8 +464,23 @@ class RNN(AbstractGraphModule):
             else:
                 final_state = final_state_packed
             return self.linear(final_state.squeeze()).squeeze()
+        
+        # Check to make sure instr_chain can form
+        if not item.block.instrs or not token_output_map:
+            print(f"Empty instructions or token_output_map. Instrs: {len(item.block.instrs)}, Outputs: {len(token_output_map)}")
+            # Zero tensor
+            device = next(self.parameters()).device
+            return torch.zeros(1, device=device)
 
-        instr_chain = torch.stack([token_output_map[instr][-1] for instr in item.block.instrs])
+        # Check if all instructions have valid outputs
+        valid_outputs = [token_output_map[instr][-1] for instr in item.block.instrs if instr in token_output_map]
+        if not valid_outputs:
+            print(f"No valid outputs found for instructions. Instrs: {len(item.block.instrs)}, Valid outputs: {len(valid_outputs)}")
+            device = next(self.parameters()).device
+            return torch.zeros(1, device=device)
+
+        # instr_chain = torch.stack([token_output_map[instr][-1] for instr in item.block.instrs])
+        instr_chain = torch.stack(valid_outputs)
 
         if self.params.hierarchy_type == RnnHierarchyType.DENSE:
             instr_chain = torch.stack([state for instr in item.block.instrs for state in token_output_map[instr]])

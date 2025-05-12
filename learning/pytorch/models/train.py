@@ -72,6 +72,7 @@ class Train():
                  opt = OptimizerType.SGD,
                  weight_decay = 0.,
                  predict_log = False,
+                 device = torch.device("cpu"),
     ):
         # type: (nn.Module, dt.Data, PredictionType, Callable[[torch.tensor, torch.tensor], torch.tensor], int, int, float, float, float, bool, Optional[float], OptimizerType, float, bool) -> None
 
@@ -110,6 +111,7 @@ class Train():
 
         self.rank = 0
         self.last_save_time = 0
+        self.device = device
 
     def dump_shared_params(self):
         # type: () -> Dict[str, object]
@@ -161,6 +163,9 @@ class Train():
 
     def correct_regression(self,x,y):
         # type: (torch.tensor, torch.tensor) -> None
+        # Ignore empty y
+        if y.numel() == 0 or x.numel() == 0:
+            return
 
         if x.shape != ():
             x = x[-1]
@@ -213,10 +218,28 @@ class Train():
 
     def get_target(self, datum):
         # type: (dt.DataItem) -> torch.tensor
-        target = torch.FloatTensor([datum.y]).squeeze()
+        # target = torch.FloatTensor([datum.y], device = self.device).squeeze()
+        if not hasattr(datum, 'y') or datum.y is None:
+            return torch.tensor([0.0], device=self.device)
+            
+        target = torch.FloatTensor([datum.y]).to(self.device).squeeze()
         if self.predict_log:
             target.log_()
         return target
+
+    def move_datum_to_device(self, datum, device):
+        if not datum.x:
+            print("datum.x empty")
+            return datum
+        if isinstance(datum.x[0], torch.Tensor) and datum.x[0].is_cuda:
+        # CUDA
+            datum.x = [tensor.to(device) for tensor in datum.x]
+        else:
+        # Move to device if on CPU
+            datum.x = [torch.LongTensor(tensor).to(device) for tensor in datum.x]
+
+        return datum
+
 
     """
     Training loop - to do make the average loss for general
@@ -240,13 +263,19 @@ class Train():
             self.correct = 0
 
             self.optimizer.zero_grad()
-            loss_tensor = torch.FloatTensor([0]).squeeze()
+            # loss_tensor = torch.FloatTensor([0]).squeeze()
+            loss_tensor = torch.tensor(0.0, device=self.device)
             batch = self.data.train[idx:idx+self.batch_size]
 
             if not batch:
                 continue
 
             for datum in batch:
+                if not datum.x or not datum.block.instrs:
+                    print(f"Skipping empty datum at index {idx}")
+                    continue
+                # output = self.model(datum)
+                datum = self.move_datum_to_device(datum, self.device)
                 output = self.model(datum)
 
                 if torch.isnan(output).any():
@@ -254,7 +283,9 @@ class Train():
                     return
 
                 #target as a tensor
+                # target = self.get_target(datum)
                 target = self.get_target(datum)
+
 
                 #get the loss value
                 if self.loss_fn:
@@ -334,8 +365,12 @@ class Train():
         for j, item in enumerate(tqdm(self.data.test)):
 
             #print len(item.x)
+            # output = self.model(item)
+            # target = self.get_target(item)
+            item = self.move_datum_to_device(item, self.device)
             output = self.model(item)
             target = self.get_target(item)
+
 
             if self.predict_log:
                 output.exp_()
@@ -346,8 +381,10 @@ class Train():
                 actual.append((torch.argmax(target) + 1).data.numpy().tolist())
                 predicted.append((torch.argmax(output) + 1).data.numpy().tolist())
             else:
-                actual.append(target.data.numpy().tolist())
-                predicted.append(output.data.numpy().tolist())
+                # actual.append(target.data.numpy().tolist())
+                # predicted.append(output.data.numpy().tolist())
+                actual.append(target.cpu().data.numpy().tolist())
+                predicted.append(output.cpu().data.numpy().tolist())
 
             self.print_final(f, output, target)
             losses = self.loss_fn(output, target)
@@ -357,7 +394,8 @@ class Train():
                 self.correct_regression(output, target)
 
             #accumulate the losses
-            loss = torch.zeros(1)
+            # loss = torch.zeros(1)
+            loss = torch.zeros(1, device=self.device)
             for c,l in enumerate(losses):
                 loss += l
                 average_loss[c] = (average_loss[c] * j + l.item()) / (j + 1)
