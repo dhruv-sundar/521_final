@@ -7,6 +7,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
+# Add Ithemal paths
 sys.path.append(os.path.join(os.environ['ITHEMAL_HOME'], 'learning', 'pytorch'))
 
 # Import Ithemal modules
@@ -14,7 +15,7 @@ import models.graph_models as md
 import data.data_cost as dt
 from ithemal_utils import BaseParameters, load_data, load_model
 
-def evaluate_model(model_file, data_file, output_dir="./results", direct=True):
+def evaluate_model(model_file, data_file, output_dir="./results", direct=True, device=None):
     """
     Evaluate a trained Ithemal model on a test dataset
     
@@ -23,7 +24,13 @@ def evaluate_model(model_file, data_file, output_dir="./results", direct=True):
         data_file: Path to the test data
         output_dir: Directory to save results
         direct: Whether to load data directly from CSV
+        device: Device to run evaluation on ('cuda' or 'cpu')
     """
+    # Determine device
+    if device is None:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f"Using device: {device}")
+    
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
@@ -64,7 +71,15 @@ def evaluate_model(model_file, data_file, output_dir="./results", direct=True):
     # Load model
     print(f"Loading model from {model_file}...")
     model = load_model(base_params, data)
-    model.load_state_dict(torch.load(model_file))
+    
+    # Load state dict and move model to the correct device
+    if device == 'cuda':
+        state_dict = torch.load(model_file)
+    else:
+        state_dict = torch.load(model_file, map_location=torch.device('cpu'))
+    
+    model.load_state_dict(state_dict)
+    model = model.to(device)
     model.eval()
     
     # Evaluate model
@@ -74,6 +89,13 @@ def evaluate_model(model_file, data_file, output_dir="./results", direct=True):
     
     with torch.no_grad():
         for item in tqdm(data.test):
+            # Move data to the correct device
+            if hasattr(item, 'x'):
+                # Handle token sequences
+                for i in range(len(item.x)):
+                    if isinstance(item.x[i], torch.Tensor):
+                        item.x[i] = item.x[i].to(device)
+            
             # Get prediction
             prediction = model(item).item()
             
@@ -193,6 +215,7 @@ if __name__ == "__main__":
     parser.add_argument("--data", required=True, help="Path to the test data")
     parser.add_argument("--output", default="./results", help="Directory to save results")
     parser.add_argument("--direct", action="store_true", help="Load data directly from CSV")
+    parser.add_argument("--cpu", action="store_true", help="Force using CPU even if CUDA is available")
     
     args = parser.parse_args()
     
@@ -201,5 +224,8 @@ if __name__ == "__main__":
         print("Error: ITHEMAL_HOME environment variable not set")
         sys.exit(1)
     
+    # Determine device
+    device = 'cpu' if args.cpu else ('cuda' if torch.cuda.is_available() else 'cpu')
+    
     # Evaluate model
-    evaluate_model(args.model, args.data, args.output, args.direct)
+    evaluate_model(args.model, args.data, args.output, args.direct, device)
