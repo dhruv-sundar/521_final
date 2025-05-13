@@ -133,6 +133,10 @@ class Train():
     def print_final(self,f,x,y):
         # type: (IO[str], np.array, np.array) -> None
         if x.shape != ():
+            if x.dim() == 0:
+                x = x.view(1)
+            if y.dim() == 0:
+                y = y.view(1)
             size = x.shape[0]
             for i in range(size):
                 f.write('%f,%f ' % (x[i],y[i]))

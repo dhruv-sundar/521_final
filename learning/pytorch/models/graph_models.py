@@ -585,10 +585,9 @@ class InstructionTransformer(AbstractGraphModule):
         
     def forward(self, item):
         # Process the instruction sequence
-        # item.x is a list of lists, where each inner list contains tokens for an instruction
         if not item.x:
             device = next(self.parameters()).device
-            return torch.zeros(1, device=device)
+            return torch.tensor([0.0], device=device)  # Return a 1D tensor with one element
         
         # Convert each instruction's tokens to a tensor and stack them
         src = torch.tensor([token for instr in item.x for token in instr], dtype=torch.long)  # [total_tokens]
@@ -610,7 +609,8 @@ class InstructionTransformer(AbstractGraphModule):
         # Regression head
         output = self.regression_head(output)
         
-        return output.view(-1)  # [1]
+        # Ensure output is a 1D tensor with one element
+        return output.squeeze().view(1)  # [1]
     
     def set_learnable_embedding(self, mode, dictsize, seed=None):
         # Implement the required method from AbstractGraphModule
