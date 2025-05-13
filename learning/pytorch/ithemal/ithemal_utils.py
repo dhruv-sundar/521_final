@@ -42,6 +42,7 @@ BaseParameters = NamedTuple('BaseParameters', [
     ('dag_nonlinearity', md.NonlinearityType),
     ('dag_nonlinearity_width', int),
     ('dag_nonlinear_before_max', bool),
+    ('use_transformer', bool),
 ])
 
 TrainParameters = NamedTuple('TrainParameters', [
@@ -127,8 +128,18 @@ def load_data(params, direct=False):
 
 def load_model(params, data):
     # type: (BaseParameters, dt.DataCost) -> md.AbstractGraphModule
-
-    if params.use_rnn:
+    if params.use_transformer:
+        transformer_params = md.TransformerParameters(
+            embedding_size=params.embed_size,
+            hidden_size=params.hidden_size,
+            num_classes=1,
+            nhead=8,
+            num_encoder_layers=6,
+            dim_feedforward=params.embed_size * 4,
+            dropout=0.1
+        )
+        model = md.InstructionTransformer(transformer_params)
+    elif params.use_rnn:
         rnn_params = md.RnnParameters(
             embedding_size=params.embed_size,
             hidden_size=params.hidden_size,

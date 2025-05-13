@@ -524,3 +524,103 @@ class Fasthemal(AbstractGraphModule):
         _, instr_state = self.instr_rnn(z)
 
         return self.linear(instr_state[0].squeeze()).squeeze()
+
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model: int, max_len: int = 5000):
+        super().__init__()
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        pe = torch.zeros(max_len, 1, d_model)
+        pe[:, 0, 0::2] = torch.sin(position * div_term)
+        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Tensor, shape [seq_len, batch_size, embedding_dim]
+        """
+        return x + self.pe[:x.size(0)]
+
+
+TransformerParameters = NamedTuple('TransformerParameters', [
+    ('embedding_size', int),
+    ('hidden_size', int),
+    ('num_classes', int),
+    ('nhead', int),
+    ('num_encoder_layers', int),
+    ('dim_feedforward', int),
+    ('dropout', float),
+])
+
+class InstructionTransformer(nn.Module):
+    def __init__(self, 
+                 vocab_size: int,
+                 d_model: int = 256,
+                 nhead: int = 8,
+                 num_encoder_layers: int = 6,
+                 dim_feedforward: int = 1024,
+                 dropout: float = 0.1):
+        super().__init__()
+        
+        self.embedding = nn.Embedding(vocab_size, d_model)
+        self.pos_encoder = PositionalEncoding(d_model)
+        
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=dim_feedforward,
+            dropout=dropout,
+            batch_first=False  # [seq_len, batch_size, features]
+        )
+        self.transformer_encoder = nn.TransformerEncoder(
+            encoder_layer,
+            num_layers=num_encoder_layers
+        )
+        
+        # Final regression layer
+        self.regression_head = nn.Sequential(
+            nn.Linear(d_model, d_model // 2),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(d_model // 2, 1)
+        )
+        
+        self.d_model = d_model
+        
+    def forward(self, item):
+        # Process the instruction sequence
+        # item.x contains the tokenized instructions
+        src = torch.tensor(item.x, dtype=torch.long)  # [seq_len]
+        src = src.unsqueeze(1)  # [seq_len, 1] for batch size 1
+        
+        # Create attention mask (optional, for padding)
+        src_mask = None
+        
+        # Embed and add positional encoding
+        src = self.embedding(src) * math.sqrt(self.d_model)
+        src = self.pos_encoder(src)
+        
+        # Pass through transformer
+        output = self.transformer_encoder(src, src_mask)
+        
+        # Global average pooling
+        output = output.mean(dim=0)  # [1, d_model]
+        
+        # Regression head
+        output = self.regression_head(output)
+        
+        return output.squeeze(-1)  # [1]
+    
+    def set_learnable_embedding(self, mode, dictsize, seed=None):
+        # Implement the required method from AbstractGraphModule
+        if mode == 'none':
+            self.embedding = nn.Embedding(dictsize, self.embedding_size)
+            initrange = 0.5 / self.embedding_size
+            self.embedding.weight.data.uniform_(-initrange, initrange)
+        elif mode == 'seed':
+            self.embedding = nn.Embedding(dictsize, self.embedding_size)
+            self.embedding.weight.data = torch.FloatTensor(seed)
+        elif mode == 'learnt':
+            self.embedding = seed

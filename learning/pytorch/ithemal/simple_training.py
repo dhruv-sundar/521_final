@@ -72,6 +72,7 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
         dag_nonlinearity=None,
         dag_nonlinearity_width=128,
         dag_nonlinear_before_max=False,
+        use_transformer=True,      # Use the transformer model
     )
     
     # Load data and model
