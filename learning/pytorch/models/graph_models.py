@@ -554,46 +554,45 @@ TransformerParameters = NamedTuple('TransformerParameters', [
     ('dropout', float),
 ])
 
-class InstructionTransformer(nn.Module):
-    def __init__(self, 
-                 vocab_size: int,
-                 d_model: int = 256,
-                 nhead: int = 8,
-                 num_encoder_layers: int = 6,
-                 dim_feedforward: int = 1024,
-                 dropout: float = 0.1):
-        super().__init__()
+class InstructionTransformer(AbstractGraphModule):
+    def __init__(self, params):
+        # type: (TransformerParameters) -> None
+        super().__init__(params.embedding_size, params.hidden_size, params.num_classes)
         
-        self.embedding = nn.Embedding(vocab_size, d_model)
-        self.pos_encoder = PositionalEncoding(d_model)
+        self.embedding = nn.Embedding(10000, params.embedding_size)  # Fixed vocab size for now
+        self.pos_encoder = PositionalEncoding(params.embedding_size)
         
         encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model,
-            nhead=nhead,
-            dim_feedforward=dim_feedforward,
-            dropout=dropout,
-            batch_first=False  # [seq_len, batch_size, features]
+            d_model=params.embedding_size,
+            nhead=params.nhead,
+            dim_feedforward=params.dim_feedforward,
+            dropout=params.dropout,
+            batch_first=False
         )
         self.transformer_encoder = nn.TransformerEncoder(
             encoder_layer,
-            num_layers=num_encoder_layers
+            num_layers=params.num_encoder_layers
         )
         
-        # Final regression layer
         self.regression_head = nn.Sequential(
-            nn.Linear(d_model, d_model // 2),
+            nn.Linear(params.embedding_size, params.hidden_size),
             nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(d_model // 2, 1)
+            nn.Dropout(params.dropout),
+            nn.Linear(params.hidden_size, params.num_classes)
         )
         
-        self.d_model = d_model
+        self.d_model = params.embedding_size
         
     def forward(self, item):
         # Process the instruction sequence
-        # item.x contains the tokenized instructions
-        src = torch.tensor(item.x, dtype=torch.long)  # [seq_len]
-        src = src.unsqueeze(1)  # [seq_len, 1] for batch size 1
+        # item.x is a list of lists, where each inner list contains tokens for an instruction
+        if not item.x:
+            device = next(self.parameters()).device
+            return torch.zeros(1, device=device)
+        
+        # Convert each instruction's tokens to a tensor and stack them
+        src = torch.tensor([token for instr in item.x for token in instr], dtype=torch.long)  # [total_tokens]
+        src = src.unsqueeze(1)  # [total_tokens, 1] for batch size 1
         
         # Create attention mask (optional, for padding)
         src_mask = None
@@ -611,7 +610,7 @@ class InstructionTransformer(nn.Module):
         # Regression head
         output = self.regression_head(output)
         
-        return output.squeeze(-1)  # [1]
+        return output.view(-1)  # [1]
     
     def set_learnable_embedding(self, mode, dictsize, seed=None):
         # Implement the required method from AbstractGraphModule

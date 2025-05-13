@@ -167,8 +167,12 @@ class Train():
         if y.numel() == 0 or x.numel() == 0:
             return
 
-        if x.shape != ():
+        # if x.shape != ():
+        #     x = x[-1]
+        #     y = y[-1]
+        if x.ndim > 0:
             x = x[-1]
+        if y.ndim > 0:
             y = y[-1]
 
         percentage = torch.abs(x - y) * 100.0 / (y + 1e-3)
