@@ -72,10 +72,9 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
         dag_nonlinearity=None,
         dag_nonlinearity_width=128,
         dag_nonlinear_before_max=False,
-        use_transformer=True,      # Use the transformer model (takes precedence over RNN)
+        use_transformer=False,      # Use the transformer model (takes precedence over RNN)
     )
     
-    # Load data and model
     print("Loading data...")
     data = load_data(base_params, direct=True)
     print(f"Data loaded: {len(data.train)} training samples, {len(data.test)} test samples")
@@ -84,29 +83,24 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
     model = load_model(base_params, data)
     model.to(device)
     
-    # Load pre-trained model if specified
     if model_file:
         print(f"Loading pre-trained model from {model_file}")
         model.load_state_dict(torch.load(model_file))
     
-    # Create trainer
     trainer = tr.Train(
         model, data, tr.PredictionType.REGRESSION, ls.mse_loss, 1,
         batch_size=batch_size, clip=None, opt=tr.OptimizerType.ADAM_PRIVATE,
         lr=learning_rate, predict_log=base_params.predict_log, device = device,
     )
-    
-    # Training loop
-    print(f"Starting training for {epochs} epochs...")
+
+    # Training
     best_loss = float('inf')
-    
     for epoch in range(epochs):
         print(f"Epoch {epoch+1}/{epochs}")
         
         # Shuffle training data
         random.shuffle(data.train)
         
-        # Train for one epoch
         loss_reporter = LossReporter()
         
         # Process data in chunks of batch_size
@@ -119,7 +113,6 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
         train_loss = loss_reporter.get_avg_loss()
         print(f"Training loss: {train_loss:.6f}")
         
-        # Validate
         print("Validating...")
         actual, predicted = trainer.validate("temp_results.txt")
         
@@ -134,7 +127,7 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
         
         print(f"Validation loss: {val_loss:.6f}")
         
-        # Save model if it's the best so far
+        # Save best model
         if val_loss < best_loss:
             best_loss = val_loss
             torch.save(model.state_dict(), f"best_model_epoch_{epoch+1}.pt")
@@ -147,7 +140,7 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train Ithemal RNN model with simplified setup")
     parser.add_argument("--data", required=True, help="Path to the data file")
-    parser.add_argument("--model", help="Path to pre-trained model to continue training")
+    parser.add_argument("--model", help="Pre-trained model path to continue training")
     parser.add_argument("--epochs", type=int, default=3, help="Number of epochs to train")
     parser.add_argument("--batch-size", type=int, default=32, help="Batch size")
     parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
