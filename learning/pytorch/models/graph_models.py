@@ -585,12 +585,12 @@ class InstructionTransformer(AbstractGraphModule):
         self.d_model = params.embedding_size
         
     def forward(self, item):
+        device = next(self.parameters()).device
         if not item.x:
-            device = next(self.parameters()).device
             return torch.tensor([0.0], device=device)
         
         # Convert each instruction's tokens to a tensor and stack them
-        src = torch.tensor([token for instr in item.x for token in instr], dtype=torch.long) 
+        src = torch.tensor([token for instr in item.x for token in instr], dtype=torch.long, device=device) 
         src = src.unsqueeze(1)
         
         src_mask = None
