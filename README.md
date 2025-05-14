@@ -1,5 +1,27 @@
+# CS 521 Final Project
 
-# Overview
+This project is essentially a clone of the Ithemal repository, with some modifications to the code to remove the distributed training and prediction components. Additionally, some scripts were added to the repository to run the model on a single machine for training and testing purposes. The original code was augmented for adding certain parameters to the configuration.
+
+## Setup
+
+A data conversion pipeline was necessary to convert the bhive CSV data into the format required by the model. This is done by running the `convert_bhive.py` script. The original bhive CSV data was downloaded from [here](https://github.com/ithemal/bhive/blob/master/benchmark/throughput/hsw.csv), and is stored in the `bhive_haswell.csv` file. The converted data is stored in the `converted_bhive.csv.gz` file. Both training and testing allow reading from the zipped file directly using the `--direct` flag.
+
+
+## Training and Testing (RNN Model)
+
+To train the model, run the `simple_training.py` script. To test the model, run the `test_model.py` script.
+
+One example command to train the model is `python ithemal/simple_training.py --data "<ITHEMAL_HOME>/converted_bhive.csv.gz" --epochs 10 --batch-size 64 --lr 0.001`
+
+To test the model you can run `python ithemal/test_model.py --model <path to model.pt file> --data <ITHEMAL_HOME>/converted_bhive.csv.gz --direct --output <path to output directory for results>`
+
+The above commands are for the RNN model. For the transformer model, please refer to the below section.
+
+## Transformer Model
+
+INSERT STUFF HERE @DAN
+
+# Ithemal Overview (original)
 
 Ithemal is a data driven model for predicting throughput of a basic block of x86-64 instructions.
 

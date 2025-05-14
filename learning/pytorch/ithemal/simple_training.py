@@ -10,10 +10,8 @@ import numpy as np
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
-# Add Ithemal paths
 sys.path.append(os.path.join(os.environ['ITHEMAL_HOME'], 'learning', 'pytorch'))
 
-# Import Ithemal modules
 import models.graph_models as md
 import models.losses as ls
 import models.train as tr
@@ -43,9 +41,7 @@ class LossReporter:
 
 def train_model(data_file, model_file=None, epochs=3, batch_size=32, 
                 learning_rate=0.001, hidden_size=256, embed_size=256):
-    """Train the RNN model directly without the distributed setup"""
     
-    # Create base parameters
     base_params = BaseParameters(
         data=data_file,
         embed_mode='none',
@@ -53,14 +49,14 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
                                'inputs', 'embeddings', 'code_delim.emb'),
         random_edge_freq=0.0,
         predict_log=False,
-        no_residual=True,  # Use only RNN, not the residual model
-        no_dag_rnn=True,   # Don't use the DAG-RNN model
+        no_residual=True,
+        no_dag_rnn=True,
         dag_reduction=md.ReductionType.MAX,
         edge_ablation_types=[],
         embed_size=embed_size,
         hidden_size=hidden_size,
         linear_embeddings=False,
-        use_rnn=True,      # Use the RNN model
+        use_rnn=True,
         rnn_type=md.RnnType.LSTM,
         rnn_hierarchy_type=md.RnnHierarchyType.MULTISCALE,
         rnn_connect_tokens=False,
@@ -72,7 +68,7 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
         dag_nonlinearity=None,
         dag_nonlinearity_width=128,
         dag_nonlinear_before_max=False,
-        use_transformer=False,      # Use the transformer model (takes precedence over RNN)
+        use_transformer=False,
     )
     
     print("Loading data...")
@@ -98,12 +94,10 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
     for epoch in range(epochs):
         print(f"Epoch {epoch+1}/{epochs}")
         
-        # Shuffle training data
         random.shuffle(data.train)
         
         loss_reporter = LossReporter()
         
-        # Process data in chunks of batch_size
         for i in range(0, len(data.train), batch_size * 10):
             end_idx = min(i + batch_size * 10, len(data.train))
             trainer.partition = (i, end_idx)
@@ -116,7 +110,6 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
         print("Validating...")
         actual, predicted = trainer.validate("temp_results.txt")
         
-        # Calculate validation loss
         val_loss = 0
         for act, pred in zip(actual, predicted):
             act_tensor = torch.tensor(act, dtype=torch.float32, device=device)
@@ -127,7 +120,6 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
         
         print(f"Validation loss: {val_loss:.6f}")
         
-        # Save best model
         if val_loss < best_loss:
             best_loss = val_loss
             torch.save(model.state_dict(), f"best_model_epoch_{epoch+1}.pt")
@@ -149,12 +141,10 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    # Make sure ITHEMAL_HOME is set
     if 'ITHEMAL_HOME' not in os.environ:
         print("Error: ITHEMAL_HOME environment variable not set")
         sys.exit(1)
     
-    # Train the model
     train_model(
         data_file=args.data,
         model_file=args.model,

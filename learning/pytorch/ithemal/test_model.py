@@ -7,34 +7,19 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-# Add Ithemal paths
 sys.path.append(os.path.join(os.environ['ITHEMAL_HOME'], 'learning', 'pytorch'))
 
-# Import Ithemal modules
 import models.graph_models as md
 import data.data_cost as dt
 from ithemal_utils import BaseParameters, load_data, load_model
 
 def evaluate_model(model_file, data_file, output_dir="./results", direct=True, device=None):
-    """
-    Evaluate a trained Ithemal model on a test dataset
-    
-    Args:
-        model_file: Path to the trained model (.pt file)
-        data_file: Path to the test data
-        output_dir: Directory to save results
-        direct: Whether to load data directly from CSV
-        device: Device to run evaluation on ('cuda' or 'cpu')
-    """
-    # Determine device
     if device is None:
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Using device: {device}")
     
-    # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
-    # Create base parameters (same as used for training)
     base_params = BaseParameters(
         data=data_file,
         embed_mode='none',
@@ -63,16 +48,13 @@ def evaluate_model(model_file, data_file, output_dir="./results", direct=True, d
         dag_nonlinear_before_max=False,
     )
     
-    # Load data
     print("Loading data...")
     data = load_data(base_params, direct=direct)
     print(f"Test set size: {len(data.test)} samples")
     
-    # Load model
     print(f"Loading model from {model_file}...")
     model = load_model(base_params, data)
     
-    # Load state dict and move model to the correct device
     if device == 'cuda':
         state_dict = torch.load(model_file)
     else:
@@ -89,42 +71,31 @@ def evaluate_model(model_file, data_file, output_dir="./results", direct=True, d
     
     with torch.no_grad():
         for item in tqdm(data.test):
-            # Move data to the correct device
             if hasattr(item, 'x'):
-                # Handle token sequences
                 for i in range(len(item.x)):
                     if isinstance(item.x[i], torch.Tensor):
                         item.x[i] = item.x[i].to(device)
             
-            # Get prediction
             prediction = model(item).item()
-            
-            # Get actual throughput
             actual = item.y
             
             predictions.append(prediction)
             actuals.append(actual)
             
-            # Free memory
             model.remove_refs(item)
     
-    # Convert to numpy arrays
     predictions = np.array(predictions)
     actuals = np.array(actuals)
     
-    # Calculate metrics
     mae = mean_absolute_error(actuals, predictions)
     rmse = np.sqrt(mean_squared_error(actuals, predictions))
     r2 = r2_score(actuals, predictions)
     
-    # Calculate MAPE (Mean Absolute Percentage Error)
     mape = np.mean(np.abs((actuals - predictions) / actuals)) * 100
     
-    # Calculate distribution of errors
     errors = np.abs(actuals - predictions)
     error_percentiles = np.percentile(errors, [25, 50, 75, 90, 95, 99])
     
-    # Print results
     print("\nEvaluation Results:")
     print(f"Mean Absolute Error (MAE): {mae:.4f} cycles")
     print(f"Root Mean Squared Error (RMSE): {rmse:.4f} cycles")
@@ -138,7 +109,6 @@ def evaluate_model(model_file, data_file, output_dir="./results", direct=True, d
     print(f"95th percentile: {error_percentiles[4]:.4f} cycles")
     print(f"99th percentile: {error_percentiles[5]:.4f} cycles")
     
-    # Save results to file
     results_file = os.path.join(output_dir, "evaluation_results.txt")
     with open(results_file, "w") as f:
         f.write("Evaluation Results:\n")
@@ -156,7 +126,6 @@ def evaluate_model(model_file, data_file, output_dir="./results", direct=True, d
     
     print(f"Results saved to {results_file}")
     
-    # Create scatter plot
     plt.figure(figsize=(10, 8))
     plt.scatter(actuals, predictions, alpha=0.5)
     plt.plot([min(actuals), max(actuals)], [min(actuals), max(actuals)], 'r--')
@@ -165,17 +134,14 @@ def evaluate_model(model_file, data_file, output_dir="./results", direct=True, d
     plt.title('Actual vs. Predicted Throughput')
     plt.grid(True)
     
-    # Add metrics to plot
     plt.text(0.05, 0.95, f'MAE: {mae:.4f} cycles\nMAPE: {mape:.2f}%\nR²: {r2:.4f}', 
              transform=plt.gca().transAxes, fontsize=12, 
              verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     
-    # Save plot
     plot_file = os.path.join(output_dir, "prediction_scatter.png")
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
     print(f"Scatter plot saved to {plot_file}")
     
-    # Create error histogram
     plt.figure(figsize=(10, 6))
     plt.hist(errors, bins=50, alpha=0.75)
     plt.xlabel('Absolute Error (cycles)')
@@ -183,12 +149,10 @@ def evaluate_model(model_file, data_file, output_dir="./results", direct=True, d
     plt.title('Distribution of Prediction Errors')
     plt.grid(True)
     
-    # Save histogram
     hist_file = os.path.join(output_dir, "error_histogram.png")
     plt.savefig(hist_file, dpi=300, bbox_inches='tight')
     print(f"Error histogram saved to {hist_file}")
     
-    # Save raw predictions for further analysis
     predictions_file = os.path.join(output_dir, "predictions.csv")
     with open(predictions_file, "w") as f:
         f.write("actual,predicted,error,percent_error\n")
@@ -219,13 +183,10 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    # Make sure ITHEMAL_HOME is set
     if 'ITHEMAL_HOME' not in os.environ:
         print("Error: ITHEMAL_HOME environment variable not set")
         sys.exit(1)
     
-    # Determine device
     device = 'cpu' if args.cpu else ('cuda' if torch.cuda.is_available() else 'cpu')
     
-    # Evaluate model
     evaluate_model(args.model, args.data, args.output, args.direct, device)
