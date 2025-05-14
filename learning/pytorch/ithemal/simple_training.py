@@ -110,7 +110,7 @@ def train_model(data_file, model_file=None, epochs=3, batch_size=32,
         loss_reporter = LossReporter()
         
         # Process data in chunks of batch_size
-        for i in range(len(data.train) - 640, len(data.train), batch_size * 10):
+        for i in range(0, len(data.train), batch_size * 10):
             end_idx = min(i + batch_size * 10, len(data.train))
             trainer.partition = (i, end_idx)
             trainer.train(report_loss_fn=loss_reporter.report_loss)
