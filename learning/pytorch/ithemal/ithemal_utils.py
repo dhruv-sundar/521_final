@@ -136,7 +136,8 @@ def load_model(params, data):
             nhead=8,
             num_encoder_layers=6,
             dim_feedforward=params.embed_size * 4,
-            dropout=0.1
+            dropout=0.1,
+            dictsize = 628,
         )
         model = md.InstructionTransformer(transformer_params)
     elif params.use_rnn:

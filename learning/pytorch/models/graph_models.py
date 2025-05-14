@@ -552,6 +552,7 @@ TransformerParameters = NamedTuple('TransformerParameters', [
     ('num_encoder_layers', int),
     ('dim_feedforward', int),
     ('dropout', float),
+    ('dictsize', int)
 ])
 
 class InstructionTransformer(AbstractGraphModule):
@@ -559,7 +560,7 @@ class InstructionTransformer(AbstractGraphModule):
         # type: (TransformerParameters) -> None
         super().__init__(params.embedding_size, params.hidden_size, params.num_classes)
         
-        self.embedding = nn.Embedding(10000, params.embedding_size)  # Fixed vocab size for now
+        self.embedding = nn.Embedding(params.dictsize, params.embedding_size)
         self.pos_encoder = PositionalEncoding(params.embedding_size)
         
         encoder_layer = nn.TransformerEncoderLayer(
@@ -584,36 +585,27 @@ class InstructionTransformer(AbstractGraphModule):
         self.d_model = params.embedding_size
         
     def forward(self, item):
-        # Process the instruction sequence
         if not item.x:
             device = next(self.parameters()).device
-            return torch.tensor([0.0], device=device)  # Return a 1D tensor with one element
+            return torch.tensor([0.0], device=device)
         
         # Convert each instruction's tokens to a tensor and stack them
-        src = torch.tensor([token for instr in item.x for token in instr], dtype=torch.long)  # [total_tokens]
-        src = src.unsqueeze(1)  # [total_tokens, 1] for batch size 1
+        src = torch.tensor([token for instr in item.x for token in instr], dtype=torch.long) 
+        src = src.unsqueeze(1)
         
-        # Create attention mask (optional, for padding)
         src_mask = None
         
-        # Embed and add positional encoding
         src = self.embedding(src) * math.sqrt(self.d_model)
         src = self.pos_encoder(src)
         
-        # Pass through transformer
         output = self.transformer_encoder(src, src_mask)
+        output = output.mean(dim=0)
         
-        # Global average pooling
-        output = output.mean(dim=0)  # [1, d_model]
-        
-        # Regression head
         output = self.regression_head(output)
         
-        # Ensure output is a 1D tensor with one element
-        return output.squeeze().view(1)  # [1]
+        return output.squeeze().view(1)
     
     def set_learnable_embedding(self, mode, dictsize, seed=None):
-        # Implement the required method from AbstractGraphModule
         if mode == 'none':
             self.embedding = nn.Embedding(dictsize, self.embedding_size)
             initrange = 0.5 / self.embedding_size
