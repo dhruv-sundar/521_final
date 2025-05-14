@@ -524,3 +524,94 @@ class Fasthemal(AbstractGraphModule):
         _, instr_state = self.instr_rnn(z)
 
         return self.linear(instr_state[0].squeeze()).squeeze()
+
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model: int, max_len: int = 5000):
+        super().__init__()
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        pe = torch.zeros(max_len, 1, d_model)
+        pe[:, 0, 0::2] = torch.sin(position * div_term)
+        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Tensor, shape [seq_len, batch_size, embedding_dim]
+        """
+        return x + self.pe[:x.size(0)]
+
+
+TransformerParameters = NamedTuple('TransformerParameters', [
+    ('embedding_size', int),
+    ('hidden_size', int),
+    ('num_classes', int),
+    ('nhead', int),
+    ('num_encoder_layers', int),
+    ('dim_feedforward', int),
+    ('dropout', float),
+    ('dictsize', int)
+])
+
+class InstructionTransformer(AbstractGraphModule):
+    def __init__(self, params):
+        # type: (TransformerParameters) -> None
+        super().__init__(params.embedding_size, params.hidden_size, params.num_classes)
+        
+        self.embedding = nn.Embedding(params.dictsize, params.embedding_size)
+        self.pos_encoder = PositionalEncoding(params.embedding_size)
+        
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=params.embedding_size,
+            nhead=params.nhead,
+            dim_feedforward=params.dim_feedforward,
+            dropout=params.dropout,
+            batch_first=False
+        )
+        self.transformer_encoder = nn.TransformerEncoder(
+            encoder_layer,
+            num_layers=params.num_encoder_layers
+        )
+        
+        self.regression_head = nn.Sequential(
+            nn.Linear(params.embedding_size, params.hidden_size),
+            nn.ReLU(),
+            nn.Dropout(params.dropout),
+            nn.Linear(params.hidden_size, params.num_classes)
+        )
+        
+        self.d_model = params.embedding_size
+        
+    def forward(self, item):
+        if not item.x:
+            device = next(self.parameters()).device
+            return torch.tensor([0.0], device=device)
+        
+        # Convert each instruction's tokens to a tensor and stack them
+        src = torch.tensor([token for instr in item.x for token in instr], dtype=torch.long) 
+        src = src.unsqueeze(1)
+        
+        src_mask = None
+        
+        src = self.embedding(src) * math.sqrt(self.d_model)
+        src = self.pos_encoder(src)
+        
+        output = self.transformer_encoder(src, src_mask)
+        output = output.mean(dim=0)
+        
+        output = self.regression_head(output)
+        
+        return output.squeeze().view(1)
+    
+    def set_learnable_embedding(self, mode, dictsize, seed=None):
+        if mode == 'none':
+            self.embedding = nn.Embedding(dictsize, self.embedding_size)
+            initrange = 0.5 / self.embedding_size
+            self.embedding.weight.data.uniform_(-initrange, initrange)
+        elif mode == 'seed':
+            self.embedding = nn.Embedding(dictsize, self.embedding_size)
+            self.embedding.weight.data = torch.FloatTensor(seed)
+        elif mode == 'learnt':
+            self.embedding = seed

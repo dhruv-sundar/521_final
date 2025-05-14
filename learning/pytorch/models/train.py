@@ -133,6 +133,10 @@ class Train():
     def print_final(self,f,x,y):
         # type: (IO[str], np.array, np.array) -> None
         if x.shape != ():
+            if x.dim() == 0:
+                x = x.view(1)
+            if y.dim() == 0:
+                y = y.view(1)
             size = x.shape[0]
             for i in range(size):
                 f.write('%f,%f ' % (x[i],y[i]))
@@ -167,8 +171,12 @@ class Train():
         if y.numel() == 0 or x.numel() == 0:
             return
 
-        if x.shape != ():
+        # if x.shape != ():
+        #     x = x[-1]
+        #     y = y[-1]
+        if x.ndim > 0:
             x = x[-1]
+        if y.ndim > 0:
             y = y[-1]
 
         percentage = torch.abs(x - y) * 100.0 / (y + 1e-3)
