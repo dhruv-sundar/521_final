@@ -1,6 +1,6 @@
 # CS 521 Final Project
 
-This project is essentially a clone of the Ithemal repository, with some modifications to the code to remove the distributed training and prediction components. Additionally, some scripts were added to the repository to run the model on a single machine for training and testing purposes. The original code was augmented for adding certain parameters to the configuration.
+This project is essentially a clone of the Ithemal repository, with some modifications to the code to remove the distributed training and prediction components. Additionally, some scripts were added to the repository to run the model on a single machine for training and testing purposes, and adds functionality for GPU training. The original code was augmented for adding certain parameters to the configuration.
 
 ## Setup
 
