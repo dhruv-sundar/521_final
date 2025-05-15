@@ -19,7 +19,7 @@ The above commands are for the RNN model. For the transformer model, please refe
 
 ## Transformer Model
 
-INSERT STUFF HERE @DAN
+The transformer model (InstructionTransformer) is located in `graph_models.py`. To adjust the configuration (e.g. number of attention heads, number of encoder layers, etc.), adjust the `load_model` function in the `ithemal_utils.py` script. To train the transformer model, run the `simple_training.py` script with the base parameter `use_transformer` set to `True` (takes precedence over RNN). The commands to train and test the model are the same as the RNN model.
 
 # Ithemal Overview (original)
 
